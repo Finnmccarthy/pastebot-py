@@ -39,13 +39,28 @@ async def on_ready():
 # Commands
 
 # Ping
-@slash.slash(name='ping', description='Bot Latency Test', usage='ping')
+@slash.slash(name='ping', description='Bot Latency Test')
 async def ping(message):
     await message.channel.send(f"Pong! {round(bot.latency * 1000)}ms")
 
 
+@bot.command(name='create', description='Creates a private text channel to use as a PasteBin')
+async def create(ctx):
+    author = ctx.author.name
+    channel = discord.utils.get(bot.get_all_channels(), name=ctx.author.name.lower())
+    if (channel is None):
+        guild = ctx.message.guild
+        category = discord.utils.get(ctx.guild.categories, name="userbins")
+        await guild.create_text_channel(f"{author}", category=category)
 
+    else:
+        await ctx.channel.send(f"You've already created a channel, check under the UserBins category")
+        return
 
+@bot.command(name='author')
+async def author(ctx):
+    author = ctx.author
+    await ctx.channel.send(f"{author}")
 
 
 
