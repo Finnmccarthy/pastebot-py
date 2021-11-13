@@ -4,6 +4,7 @@ from discord import client
 from discord import message
 from discord.abc import GuildChannel
 from discord.ext import commands
+from discord.utils import get
 from discord_slash import SlashCommand
 import logging
 import json
@@ -22,10 +23,11 @@ cwd = Path(__file__).parents[0]
 cwd = str(cwd)
 print(f"{cwd}\n-----")
 
+intents = discord.Intents.all()
+
 bot = discord.Client()
 config_file = json.load(open(cwd+'/bot_config/config.json'))
 bot.config_prefix = config_file['prefix']
-intents = discord.Intents.all()
 bot = commands.Bot(bot.config_prefix, intents=intents, description=description, case_insensitive=True)
 slash = SlashCommand(bot)
 
@@ -51,8 +53,8 @@ async def ping(message):
 async def create(ctx):
     # Caches author & channel
     author = ctx.author.name.lower()
-    channel = discord.utils.get(bot.get_all_channels(), name=author)
-    existing_channel = discord.utils.get(ctx.guild.channels, name=author)
+    author_id = ctx.author.id
+    channel = discord.utils.get(ctx.guild.channels, name=author)
     if (channel is None):
 
         # Deletes user message
@@ -70,18 +72,34 @@ async def create(ctx):
         
         # Creates channel
         await guild.create_text_channel(f"{author}", category=category, overwrites=overwrites)
-
-        author_channel = bot.get_channel(channel.id)
-        embededvarreact = discord.Embed(description="This channel will be automaticlly deleted after 10 Minutes. If you wish to delete it sooner, react to this message :recycle:", color=0x4287f5)
-        await author_channel.send(embed=embededvarreact)
         
+
+        channel_existing = discord.utils.get(ctx.guild.channels, name=author)
+        channel_id = channel_existing.id
+        author_channel = bot.get_channel(channel_id)
+        emb = discord.Embed(description="This channel will be automaticlly deleted after 10 Minutes. If you wish to delete it sooner, react to this message :recycle:", color=0x4287f5)
+        msg = await author_channel.send(embed=emb)
+        emoji = '♻️'
+        await msg.add_reaction(emoji)
+
+        with open("bindb.json", 'a+') as f:
+
+            new_bin_channel = {
+                "author": author_id,
+                "channel_id": channel_id,
+                "message_id": msg.id
+            }
+
+            json.dump(new_bin_channel, f, indents=4)
+
+
         # Posts confirmation of channel creation
         embededvar0 = discord.Embed(title="PasteBin Created", description=f"{ctx.author.mention}", color=0x2bd642)
         await ctx.send(embed=embededvar0)
 
         # Deletes channel after 10 Minutes        
-        await asyncio.sleep(600) 
-        await existing_channel.delete()
+        await asyncio.sleep(10) 
+        await channel_existing.delete()
         
 
     else:
@@ -92,6 +110,17 @@ async def create(ctx):
         await ctx.message.delete()
         return
 
+
+@bot.event
+async def on_raw_reaction_delete(payload):
+    if payload.member.bot:
+        pass
+
+    else:
+        emoji = '♻️'
+        if [emoji] == payload.emoji.name:
+            channel = bot.get_channel(payload.channel_id)
+            await channel.delete()
 
 
 
